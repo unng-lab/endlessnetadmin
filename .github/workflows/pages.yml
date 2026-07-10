@@ -1,0 +1,93 @@
+name: Test and deploy admin console
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: admin-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.38.1
+          cache: true
+
+      - name: Validate pinned OpenAPI contract
+        run: npx --yes @redocly/cli@2.38.0 lint contracts/frontend-api.openapi.json --extends=spec
+
+      - name: Verify pinned contract checksums
+        shell: pwsh
+        run: ./scripts/verify-contracts.ps1
+
+      - name: Install dependencies
+        working-directory: app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Test
+        working-directory: app
+        run: flutter test
+
+      - name: Build Pages artifact
+        shell: pwsh
+        run: >-
+          ./scripts/build-pages-admin.ps1
+          -OutputPath dist
+          -Clean
+          -Standalone
+          -ApiBaseUrl https://api.endlessnet.ru
+          -SiteRoot https://endlessnet.ru/
+
+      - name: Upload tested Pages artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-pages
+          path: dist
+          if-no-files-found: error
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: test-build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download tested Pages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-pages
+          path: dist
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
