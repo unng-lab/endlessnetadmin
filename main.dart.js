@@ -45685,7 +45685,7 @@ j=j.c
 j=j==null?m:j.a
 if(j==null)j="-"
 o=t.p
-return A.ji(A.b([B.Sb,B.aY,A.fq(B.ab,A.b([new A.Zd(i,h,g,f,e,s,l,r,q,p,new A.avu(n),new A.avv(n),n.ga9s(),n.ga7W(),n.gaiH(),m),B.a2i,B.a2k,B.a2l,B.a2j,new A.oR("\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430",B.Iv,B.b.aQ(A.b(["account="+j,"networks="+J.bQ(i)],t.s),"\n"),m)],o),B.az,16,16)],o),B.bY,m,!1)},
+return A.ji(A.b([B.Sb,B.aY,A.fq(B.ab,A.b([new A.Zd(i,h,g,f,e,s,l,r,q,p,new A.avu(n),new A.avv(n),n.ga9s(),n.ga7W(),n.gaiH(),m),B.a2k,B.a2i,B.a2l,B.a2j,new A.oR("\u041a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430",B.Iv,B.b.aQ(A.b(["account="+j,"networks="+J.bQ(i)],t.s),"\n"),m)],o),B.az,16,16)],o),B.bY,m,!1)},
 gamk(){var s,r=this.f
 r=r==null?null:r.h(0,"token")
 s=B.c.aB(r==null?"":J.T(r))
@@ -102237,11 +102237,11 @@ B.a2f=new A.mC(1,"start")
 B.a2g=new A.mC(2,"update")
 B.dI=new A.mC(3,"commit")
 B.a2h=new A.mC(4,"cancel")
-B.IB=new A.b9(63138,"MaterialIcons",!1)
-B.a2i=new A.oR("Debian/Ubuntu (APT)",B.IB,"curl -fsSL https://apt.unng.ru/apt/install-endlessnet.sh | sudo sh",null)
+B.a2i=new A.oR("Linux/macOS (install.sh)",B.oT,"curl -fsSL https://endlessnet.ru/install.sh | sh",null)
 B.It=new A.b9(62824,"MaterialIcons",!1)
 B.a2j=new A.oR("API \u0438 MCP",B.It,"go run ./cmd/endlessnet-mcp",null)
-B.a2k=new A.oR("Linux/macOS (install.sh)",B.oT,"curl -fsSL https://endlessnet.unng.ru/install.sh | sh",null)
+B.IB=new A.b9(63138,"MaterialIcons",!1)
+B.a2k=new A.oR("Debian/Ubuntu (APT)",B.IB,"curl -fsSL https://endlessnet.ru/install.sh | sudo sh",null)
 B.IR=new A.b9(983167,"MaterialIcons",!1)
 B.a2l=new A.oR("Android/iOS (WireGuard)",B.IR,"\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u0441\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 WireGuard-\u0441\u043e\u0432\u043c\u0435\u0441\u0442\u0438\u043c\u044b\u0439 \u043f\u0440\u043e\u0444\u0438\u043b\u044c \u0441 \u043e\u0434\u043e\u0431\u0440\u0435\u043d\u043d\u043e\u0433\u043e \u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0430.",null)
 B.mD=new A.f9(1,"add")
