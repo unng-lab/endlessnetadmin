@@ -112,6 +112,7 @@ function Get-EndlessNetAdminContentBuildId {
       -Bytes ([System.Text.Encoding]::UTF8.GetBytes($normalizedBootstrap))
 
     foreach ($relativePath in @(
+      "session_bootstrap.js",
       "main.dart.js",
       "version.json",
       "manifest.json",
@@ -187,12 +188,25 @@ function Add-EndlessNetAdminCacheBuster {
   }
   $indexHtml = Read-EndlessNetUtf8Text -Path $indexPath
   $indexHtml = $indexHtml `
-    -replace 'src="flutter_bootstrap\.js(?:\?v=[^"]*)?"', "src=`"flutter_bootstrap.js?v=$encodedBuildId`"" `
+    -replace 'src="session_bootstrap\.js(?:\?v=[^"]*)?"', "src=`"session_bootstrap.js?v=$encodedBuildId`"" `
     -replace 'href="manifest\.json(?:\?v=[^"]*)?"', "href=`"manifest.json?v=$encodedBuildId`""
-  if ($indexHtml -notmatch 'flutter_bootstrap\.js\?v=') {
-    throw "Failed to add Flutter bootstrap cache buster to $indexPath"
+  if ($indexHtml -notmatch 'session_bootstrap\.js\?v=') {
+    throw "Failed to add session bootstrap cache buster to $indexPath"
   }
   Write-EndlessNetUtf8Text -Path $indexPath -Value $indexHtml
+
+  $sessionBootstrapPath = Join-Path $AdminSource "session_bootstrap.js"
+  if (-not (Test-Path -LiteralPath $sessionBootstrapPath)) {
+    throw "Admin session_bootstrap.js not found: $sessionBootstrapPath"
+  }
+  $sessionBootstrap = Read-EndlessNetUtf8Text -Path $sessionBootstrapPath
+  $sessionBootstrap = $sessionBootstrap -replace `
+    'new URL\("flutter_bootstrap\.js(?:\?v=[^"]*)?", document\.baseURI\)', `
+    "new URL(`"flutter_bootstrap.js?v=$encodedBuildId`", document.baseURI)"
+  if ($sessionBootstrap -notmatch 'flutter_bootstrap\.js\?v=') {
+    throw "Failed to add Flutter bootstrap cache buster to $sessionBootstrapPath"
+  }
+  Write-EndlessNetUtf8Text -Path $sessionBootstrapPath -Value $sessionBootstrap
 
   $bootstrapPath = Join-Path $AdminSource "flutter_bootstrap.js"
   if (-not (Test-Path -LiteralPath $bootstrapPath)) {

@@ -35,7 +35,7 @@ void main() {
   );
 
   test('browser authentication contract forbids HTML provider scraping', () {
-    final loginSource = File('web/login.html').readAsStringSync();
+    final loginSource = File('web/login/index.html').readAsStringSync();
     expect(loginSource, isNot(contains('parseProvidersFromLoginHTML')));
     expect(loginSource, isNot(contains('loadProvidersFromLoginPage')));
     expect(loginSource, contains('/auth/providers'));

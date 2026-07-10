@@ -122,9 +122,6 @@ class _AdminConsoleState extends State<AdminConsole> {
     super.initState();
     _apiBase = runtime.defaultApiBase();
     _readRoute();
-    if (runtime.currentAdminRouteSegments().isEmpty) {
-      runtime.replaceAdminPath([_section.slug]);
-    }
     _removeHistoryListener = runtime.listenAdminHistory(() {
       if (!mounted) {
         return;

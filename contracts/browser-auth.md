@@ -5,17 +5,23 @@ gateway.
 
 ## Flow
 
-1. The admin console requests `GET /auth/providers` with
+1. The browser opens the admin console at `/`. The root URL is canonical and
+   must not be rewritten to a default protected section before authentication.
+2. Before loading the Flutter application, the root document requests
+   `GET /auth/me` with browser credentials.
+3. A `401` or `403` response redirects the browser directly to `/login/`.
+   The Flutter application and protected section routes are not loaded first.
+4. The `/login/` page requests `GET /auth/providers` with
    `Accept: application/json`.
-2. The gateway returns the provider list defined by the OpenAPI contract.
-3. The browser navigates to the selected provider's `login_url` on the API
+5. The gateway returns the provider list defined by the OpenAPI contract.
+6. The browser navigates to the selected provider's `login_url` on the API
    origin.
-4. The gateway performs the OIDC redirect and callback flow.
-5. A successful callback creates the server-side session, writes the session
-   cookie, and redirects to the configured admin URL.
-6. Admin API requests include browser credentials. A bearer token may be used
+7. The gateway performs the OIDC redirect and callback flow.
+8. A successful callback creates the server-side session, writes the session
+   cookie, and redirects to the configured admin root URL.
+9. Admin API requests include browser credentials. A bearer token may be used
    by non-browser consumers, but tokens must never be placed in redirect URLs.
-7. `POST /auth/logout` invalidates the server-side session and clears the
+10. `POST /auth/logout` invalidates the server-side session and clears the
    session cookie.
 
 ## Security and transport

@@ -4,6 +4,6 @@
     "files":  {
                   "frontend-api.openapi.json":  "af2c94d20fd5376ce2cf25fc8caceb4058f928a101fdf8ae2dc2c93bd1af3721",
                   "frontend-runtime-config.schema.json":  "87b75fcf14f717ea33bc1d53224d11411ff66c3db5b19ea7138d1d819c7a682e",
-                  "browser-auth.md":  "c7cc127e02cd9ea31eea9fd84581a7af4ea0f85023ad0fee4b2416d50bcf5efc"
+                  "browser-auth.md":  "8f9ce0c25c3945db16afacb21b1af4822ff20addaf5f48a2a292bca0500fe98e"
               }
 }

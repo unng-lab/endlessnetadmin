@@ -1,6 +1,6 @@
 String defaultApiBase() => '';
 
-String adminLoginUrl() => 'login.html';
+String adminLoginUrl() => 'login/';
 
 String siteRoot() => '../';
 

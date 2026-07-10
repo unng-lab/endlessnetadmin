@@ -17,7 +17,7 @@ String defaultApiBase() {
 String adminLoginUrl() {
   return Uri.parse(
     web.window.location.origin,
-  ).resolve(_adminRootPath()).resolve('login.html').toString();
+  ).resolve(_adminRootPath()).resolve('login/').toString();
 }
 
 String siteRoot() {
