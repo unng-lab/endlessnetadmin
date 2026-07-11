@@ -83,19 +83,28 @@ void main() {
     await tester.tap(find.text('Ресурсы').first);
     await tester.pump();
 
-    expect(find.text('Debian/Ubuntu (APT)'), findsOneWidget);
-    expect(find.text('Linux/macOS (install.sh)'), findsOneWidget);
-    expect(
-      find.text('curl -fsSL https://endlessnet.ru/install.sh | sudo sh'),
-      findsOneWidget,
-    );
+    expect(find.text('Debian/Ubuntu'), findsOneWidget);
+    expect(find.text('Linux/macOS'), findsOneWidget);
     expect(
       find.text('curl -fsSL https://endlessnet.ru/install.sh | sh'),
-      findsOneWidget,
+      findsNWidgets(2),
     );
     expect(find.text('Подключение Windows'), findsOneWidget);
     expect(find.text('Скачать установщик'), findsOneWidget);
-    expect(find.text('Подключить это устройство'), findsOneWidget);
+    expect(find.text('Connect this device'), findsOneWidget);
+    expect(find.text('Create join token'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Interactive: enrollment request -> approval link -> complete enrollment.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(
+        'Unattended: create join token -> copy install command.',
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Android/iOS (WireGuard)'), findsOneWidget);
   });
 

@@ -50,6 +50,19 @@ void main() {
     );
   });
 
+  test('windowsInteractiveEnrollmentLink renders no-secret tray deep link', () {
+    final link = windowsInteractiveEnrollmentLink(
+      serverUrl: 'https://api.endlessnet.ru/',
+      mode: 'server',
+    );
+
+    expect(
+      link,
+      'endlessnet://enroll?server=https%3A%2F%2Fapi.endlessnet.ru&mode=server',
+    );
+    expect(link, isNot(contains('token=')));
+  });
+
   test('tokenTTLLabel renders compact remaining lifetime', () {
     final now = DateTime.utc(2026, 7, 7, 10);
     expect(tokenTTLLabel(now.add(const Duration(hours: 1)), now), '1h');
@@ -76,7 +89,7 @@ void main() {
   });
 
   testWidgets(
-    'Resource Hub connects Windows device via installer and deep link',
+    'Resource Hub separates interactive connect and unattended join token',
     (tester) async {
       tester.view.physicalSize = const Size(1200, 900);
       tester.view.devicePixelRatio = 1;
@@ -160,13 +173,23 @@ void main() {
       await tester.tap(find.byIcon(Icons.link_rounded));
       await tester.pumpAndSettle();
 
+      expect(seenMode, isNull);
+      expect(seenNetworkId, isNull);
+      expect(seenNetworkName, isNull);
+      expect(
+        launchedLink,
+        'endlessnet://enroll?server=https%3A%2F%2Fapi.example.test&mode=workstation',
+      );
+      expect(launchedLink, isNot(contains('token=')));
+      expect(find.textContaining('enj_test'), findsNothing);
+
+      await tester.tap(find.text('Create join token'));
+      await tester.pumpAndSettle();
+
       expect(seenMode, 'workstation');
       expect(seenNetworkId, 'net_prod');
       expect(seenNetworkName, 'prod');
-      expect(
-        launchedLink,
-        'endlessnet://enroll?server=https%3A%2F%2Fapi.example.test&token=enj_test&mode=workstation',
-      );
+      expect(find.textContaining("-EnrollToken 'enj_test'"), findsOneWidget);
       expect(find.textContaining('enj_test'), findsOneWidget);
     },
   );

@@ -87,6 +87,13 @@ String currentCheckoutID() {
       '';
 }
 
+String currentEnrollmentRequestID() {
+  return Uri.parse(
+        web.window.location.href,
+      ).queryParameters['enrollment_request'] ??
+      '';
+}
+
 void pushAdminView(String viewSlug) {
   _setAdminView(viewSlug, replace: false);
 }

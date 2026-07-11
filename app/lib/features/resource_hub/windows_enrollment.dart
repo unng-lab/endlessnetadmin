@@ -41,6 +41,21 @@ String windowsEnrollmentLink({
   ).toString();
 }
 
+String windowsInteractiveEnrollmentLink({
+  required String serverUrl,
+  required String mode,
+}) {
+  final query = <String, String>{
+    'server': _trimTrailingSlash(serverUrl),
+    'mode': _windowsMode(mode),
+  }..removeWhere((_, value) => value.trim().isEmpty);
+  return Uri(
+    scheme: 'endlessnet',
+    host: 'enroll',
+    queryParameters: query,
+  ).toString();
+}
+
 String windowsCompatibilityCommand({
   required String serverUrl,
   required String enrollToken,

@@ -80,18 +80,8 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> {
   }
 
   Future<void> _connectWindowsDevice() async {
-    final token = _token ?? await _createWindowsToken();
-    if (!mounted || token == null) {
-      return;
-    }
-    final enrollToken = stringValue(token['token']).trim();
-    if (enrollToken.isEmpty) {
-      setState(() => _error = 'Не удалось получить ссылку подключения.');
-      return;
-    }
-    final link = windowsEnrollmentLink(
+    final link = windowsInteractiveEnrollmentLink(
       serverUrl: widget.apiBaseUrl,
-      enrollToken: enrollToken,
       mode: _mode,
     );
     (widget.launchEnrollmentLink ?? runtime.redirectTo)(link);
@@ -127,6 +117,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> {
   @override
   Widget build(BuildContext context) {
     final windowsLink = _windowsEnrollmentLink;
+    final windowsUnattendedCommand = _windowsUnattendedCommand;
     final selectedNetwork = _selectedNetwork;
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -150,6 +141,7 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> {
               selectedNetworkId: selectedNetwork?.id ?? '',
               token: _token,
               enrollmentLink: windowsLink,
+              unattendedCommand: windowsUnattendedCommand,
               error: _error,
               creating: _creating,
               revoking: _revoking,
@@ -163,15 +155,16 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> {
               }),
               onDownload: _downloadWindowsInstaller,
               onConnect: _connectWindowsDevice,
+              onCreateToken: _createWindowsToken,
               onRevoke: _revokeWindowsToken,
             ),
             const _ResourcePanel(
-              title: 'Debian/Ubuntu (APT)',
+              title: 'Debian/Ubuntu',
               icon: Icons.developer_board_rounded,
-              command: 'curl -fsSL https://endlessnet.ru/install.sh | sudo sh',
+              command: 'curl -fsSL https://endlessnet.ru/install.sh | sh',
             ),
             const _ResourcePanel(
-              title: 'Linux/macOS (install.sh)',
+              title: 'Linux/macOS',
               icon: Icons.terminal_rounded,
               command: 'curl -fsSL https://endlessnet.ru/install.sh | sh',
             ),
@@ -201,11 +194,19 @@ class _ResourceHubScreenState extends State<ResourceHubScreen> {
   }
 
   String get _windowsEnrollmentLink {
+    return windowsInteractiveEnrollmentLink(
+      serverUrl: widget.apiBaseUrl,
+      mode: _mode,
+    );
+  }
+
+  String get _windowsUnattendedCommand {
     final token = stringValue(_token?['token']).trim();
     if (token.isEmpty) {
       return '';
     }
-    return windowsEnrollmentLink(
+    return windowsEnrollmentCommand(
+      installScriptUrl: 'https://endlessnet.ru/install.ps1',
       serverUrl: widget.apiBaseUrl,
       enrollToken: token,
       mode: _mode,
@@ -235,6 +236,7 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
     required this.selectedNetworkId,
     required this.token,
     required this.enrollmentLink,
+    required this.unattendedCommand,
     required this.error,
     required this.creating,
     required this.revoking,
@@ -242,6 +244,7 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
     required this.onNetworkChanged,
     required this.onDownload,
     required this.onConnect,
+    required this.onCreateToken,
     required this.onRevoke,
   });
 
@@ -253,6 +256,7 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
   final String selectedNetworkId;
   final Map<String, dynamic>? token;
   final String enrollmentLink;
+  final String unattendedCommand;
   final String? error;
   final bool creating;
   final bool revoking;
@@ -260,6 +264,7 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
   final ValueChanged<String> onNetworkChanged;
   final VoidCallback onDownload;
   final VoidCallback onConnect;
+  final VoidCallback onCreateToken;
   final VoidCallback onRevoke;
 
   @override
@@ -299,6 +304,16 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
                     tooltip: 'Копировать ссылку подключения',
                   ),
               ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Interactive: enrollment request -> approval link -> complete enrollment.',
+              style: TextStyle(color: colors.muted),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Unattended: create join token -> copy install command.',
+              style: TextStyle(color: colors.muted),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -360,15 +375,20 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
                   label: const Text('Скачать установщик'),
                 ),
                 FilledButton.icon(
-                  onPressed: canMutate && !creating ? onConnect : null,
+                  onPressed: canMutate ? onConnect : null,
+                  icon: const Icon(Icons.link_rounded),
+                  label: const Text('Connect this device'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: canMutate && !creating ? onCreateToken : null,
                   icon: creating
                       ? const SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.link_rounded),
-                  label: const Text('Подключить это устройство'),
+                      : const Icon(Icons.vpn_key_rounded),
+                  label: const Text('Create join token'),
                 ),
                 if (tokenId.isNotEmpty)
                   OutlinedButton.icon(
@@ -402,10 +422,36 @@ class _WindowsEnrollmentPanel extends StatelessWidget {
               Text(error!, style: TextStyle(color: colors.danger)),
             ],
             const SizedBox(height: 12),
+            Text(
+              'Interactive launch URL',
+              style: TextStyle(color: colors.muted),
+            ),
+            const SizedBox(height: 6),
             SelectableText(
-              enrollmentLink.isEmpty
-                  ? 'Установите приложение и подключите это устройство без командной строки.'
-                  : enrollmentLink,
+              enrollmentLink,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Unattended install command',
+                    style: TextStyle(color: colors.muted),
+                  ),
+                ),
+                if (unattendedCommand.isNotEmpty)
+                  CopyButton(
+                    value: unattendedCommand,
+                    tooltip: 'Copy unattended install command',
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SelectableText(
+              unattendedCommand.isEmpty
+                  ? 'Create join token to generate an unattended install command.'
+                  : unattendedCommand,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
             if (tokenId.isNotEmpty) ...[

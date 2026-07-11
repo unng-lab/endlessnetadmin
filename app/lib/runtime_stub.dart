@@ -24,6 +24,8 @@ String currentBillingViewSlug() => '';
 
 String currentCheckoutID() => '';
 
+String currentEnrollmentRequestID() => '';
+
 void pushAdminView(String viewSlug) {}
 
 void replaceAdminView(String viewSlug) {}

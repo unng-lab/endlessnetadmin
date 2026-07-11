@@ -33,6 +33,12 @@ void main() {
 
     expect(installer, isNot(contains('--token "\$auth_token"')));
     expect(installer, contains('login --server "\$server_url" --token-file -'));
-    expect(installer, contains('--join-token-file <owner-only-token-file>'));
+    expect(installer, contains('--join-token TOKEN'));
+    expect(installer, contains('service enroll'));
+    expect(installer, contains('--join-token-file "\$token_file"'));
+    expect(installer, contains('service_enroll_args -'));
+    expect(installer, contains('service_enroll_args "" ""'));
+    expect(installer, contains('client_up_args -'));
+    expect(installer, contains('client_up_args "" ""'));
   });
 }

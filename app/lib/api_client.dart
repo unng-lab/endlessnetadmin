@@ -197,6 +197,49 @@ class ApiClient {
     );
   }
 
+  Future<Map<String, dynamic>> nodeEnrollmentRequest(
+    String accountId,
+    String requestId,
+  ) {
+    return _request(
+      'GET',
+      '/admin/accounts/${Uri.encodeComponent(accountId)}/enrollment-requests/${Uri.encodeComponent(requestId)}',
+      decode: mapOf,
+    );
+  }
+
+  Future<Map<String, dynamic>> approveNodeEnrollmentRequest(
+    String accountId,
+    String requestId, {
+    String networkId = '',
+    String networkName = '',
+    List<String> tags = const [],
+  }) {
+    return _request(
+      'POST',
+      '/admin/accounts/${Uri.encodeComponent(accountId)}/enrollment-requests/${Uri.encodeComponent(requestId)}/approve',
+      body: {
+        if (networkId.trim().isNotEmpty) 'network_id': networkId.trim(),
+        if (networkName.trim().isNotEmpty) 'network_name': networkName.trim(),
+        if (tags.isNotEmpty) 'tags': tags,
+      },
+      decode: mapOf,
+    );
+  }
+
+  Future<Map<String, dynamic>> rejectNodeEnrollmentRequest(
+    String accountId,
+    String requestId, {
+    String reason = '',
+  }) {
+    return _request(
+      'POST',
+      '/admin/accounts/${Uri.encodeComponent(accountId)}/enrollment-requests/${Uri.encodeComponent(requestId)}/reject',
+      body: {if (reason.trim().isNotEmpty) 'reason': reason.trim()},
+      decode: mapOf,
+    );
+  }
+
   Future<List<AppModel>> listApps(String accountId) {
     return _request(
       'GET',

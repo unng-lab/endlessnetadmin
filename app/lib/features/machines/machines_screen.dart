@@ -484,11 +484,12 @@ class _AddDevicePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.adminColors;
+    final shellJoinToken = _shellSingle(joinToken);
     final commands = {
       'Linux-сервер':
-          'curl -fsSL https://endlessnet.unng.ru/install.sh | sudo ENDLESSNET_JOIN_TOKEN=$joinToken sh',
+          'curl -fsSL https://endlessnet.ru/install.sh | sh -s -- --join-token $shellJoinToken',
       'Рабочая станция macOS / Linux':
-          'endlessnet-client up --join-token $joinToken',
+          'curl -fsSL https://endlessnet.ru/install.sh | sh -s -- --join-token $shellJoinToken',
       'Windows': windowsEnrollmentCommand(
         installScriptUrl: 'https://endlessnet.ru/install.ps1',
         serverUrl: apiBaseUrl,
@@ -560,6 +561,8 @@ class _AddDevicePanel extends StatelessWidget {
     );
   }
 }
+
+String _shellSingle(String value) => "'${value.replaceAll("'", "'\"'\"'")}'";
 
 List<String> _csv(String value) {
   return value

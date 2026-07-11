@@ -127,6 +127,91 @@ void main() {
     expect(response['token'], 'enj_test');
   });
 
+  test('nodeEnrollmentRequest uses account-scoped approval endpoint', () async {
+    late http.Request seen;
+    final client = ApiClient(
+      baseUrl: 'https://api.example.test',
+      token: 'session-token',
+      httpClient: MockClient((request) async {
+        seen = request;
+        return http.Response(
+          '{"id":"ner_1","status":"pending","hostname":"host-a","public_key":"pub","created_at":"2026-07-11T00:00:00Z","expires_at":"2026-07-11T00:10:00Z"}',
+          200,
+        );
+      }),
+    );
+
+    final response = await client.nodeEnrollmentRequest('acct_1', 'ner_1');
+
+    expect(seen.method, 'GET');
+    expect(seen.url.path, '/admin/accounts/acct_1/enrollment-requests/ner_1');
+    expect(seen.headers['Authorization'], 'Bearer session-token');
+    expect(response['id'], 'ner_1');
+    expect(seen.url.toString(), isNot(contains('poll_token')));
+  });
+
+  test('approveNodeEnrollmentRequest sends admin approval body', () async {
+    late http.Request seen;
+    final client = ApiClient(
+      baseUrl: 'https://api.example.test',
+      token: 'session-token',
+      httpClient: MockClient((request) async {
+        seen = request;
+        return http.Response(
+          '{"id":"ner_1","status":"approved","hostname":"host-a","public_key":"pub","created_at":"2026-07-11T00:00:00Z","expires_at":"2026-07-11T00:10:00Z"}',
+          200,
+        );
+      }),
+    );
+
+    await client.approveNodeEnrollmentRequest(
+      'acct_1',
+      'ner_1',
+      networkName: 'default',
+      tags: const ['mode:server'],
+    );
+
+    final body = jsonDecode(seen.body) as Map<String, dynamic>;
+    expect(seen.method, 'POST');
+    expect(
+      seen.url.path,
+      '/admin/accounts/acct_1/enrollment-requests/ner_1/approve',
+    );
+    expect(body['network_name'], 'default');
+    expect(body['tags'], ['mode:server']);
+    expect(seen.body, isNot(contains('poll_token')));
+  });
+
+  test('rejectNodeEnrollmentRequest sends admin rejection body', () async {
+    late http.Request seen;
+    final client = ApiClient(
+      baseUrl: 'https://api.example.test',
+      token: 'session-token',
+      httpClient: MockClient((request) async {
+        seen = request;
+        return http.Response(
+          '{"id":"ner_1","status":"rejected","hostname":"host-a","public_key":"pub","created_at":"2026-07-11T00:00:00Z","expires_at":"2026-07-11T00:10:00Z"}',
+          200,
+        );
+      }),
+    );
+
+    await client.rejectNodeEnrollmentRequest(
+      'acct_1',
+      'ner_1',
+      reason: 'wrong host',
+    );
+
+    final body = jsonDecode(seen.body) as Map<String, dynamic>;
+    expect(seen.method, 'POST');
+    expect(
+      seen.url.path,
+      '/admin/accounts/acct_1/enrollment-requests/ner_1/reject',
+    );
+    expect(body['reason'], 'wrong host');
+    expect(seen.body, isNot(contains('poll_token')));
+  });
+
   test('createBillingCheckout uses the payment-backed endpoint', () async {
     late http.Request seen;
     final client = ApiClient(

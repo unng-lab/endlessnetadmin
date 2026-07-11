@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'admin_shell.dart';
@@ -96,6 +98,8 @@ class _AdminConsoleState extends State<AdminConsole> {
   String _apiBase = '';
   bool _loading = false;
   String? _alert;
+  String _routeEnrollmentRequestId = '';
+  String _handledEnrollmentRequestId = '';
 
   AdminUser? _me;
   List<AccountModel> _accounts = const [];
@@ -183,6 +187,7 @@ class _AdminConsoleState extends State<AdminConsole> {
 
   void _readRoute() {
     final route = runtime.currentAdminRouteSegments();
+    _routeEnrollmentRequestId = runtime.currentEnrollmentRequestID().trim();
     final first = route.isEmpty ? '' : route[0];
     _section = switch (first) {
       '' => AdminSection.machines,
@@ -370,6 +375,11 @@ class _AdminConsoleState extends State<AdminConsole> {
         _loading = false;
         _alert = warnings.isEmpty ? null : warnings.take(3).join('\n');
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          unawaited(_maybeOpenEnrollmentRequestApproval());
+        }
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -520,6 +530,104 @@ class _AdminConsoleState extends State<AdminConsole> {
         return;
       }
       setState(() => _alert = 'Revoke join token failed: $error');
+    }
+  }
+
+  Future<void> _maybeOpenEnrollmentRequestApproval() async {
+    final requestId = _routeEnrollmentRequestId.trim();
+    final accountId = _selectedAccountId.trim();
+    if (requestId.isEmpty ||
+        accountId.isEmpty ||
+        _handledEnrollmentRequestId == requestId) {
+      return;
+    }
+    _handledEnrollmentRequestId = requestId;
+    Map<String, dynamic> request;
+    try {
+      request = await _client().nodeEnrollmentRequest(accountId, requestId);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _alert = 'Enrollment request load failed: $error');
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    final status = stringValue(request['status']).trim();
+    final canDecide = _canMutate && status == 'pending';
+    final action = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final colors = context.adminColors;
+        final hostname = stringValue(request['hostname']).trim();
+        final publicKey = stringValue(request['public_key']).trim();
+        final identityKey = stringValue(request['identity_public_key']).trim();
+        final fingerprint = stringValue(request['device_fingerprint']).trim();
+        final createdAt = stringValue(request['created_at']).trim();
+        final expiresAt = stringValue(request['expires_at']).trim();
+        return AlertDialog(
+          title: const Text('Enrollment request'),
+          content: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Status: ${status.isEmpty ? '-' : status}'),
+                Text('Hostname: ${hostname.isEmpty ? '-' : hostname}'),
+                Text('Created: ${createdAt.isEmpty ? '-' : createdAt}'),
+                Text('Expires: ${expiresAt.isEmpty ? '-' : expiresAt}'),
+                const SizedBox(height: 12),
+                SelectableText(
+                  [
+                    'request_id=$requestId',
+                    if (publicKey.isNotEmpty) 'public_key=$publicKey',
+                    if (identityKey.isNotEmpty)
+                      'identity_public_key=$identityKey',
+                    if (fingerprint.isNotEmpty)
+                      'device_fingerprint=$fingerprint',
+                  ].join('\n'),
+                  style: TextStyle(
+                    color: colors.muted,
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop('close'),
+              child: const Text('Close'),
+            ),
+            if (canDecide)
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop('reject'),
+                child: const Text('Reject'),
+              ),
+            if (canDecide)
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop('approve'),
+                child: const Text('Approve'),
+              ),
+          ],
+        );
+      },
+    );
+    if (!mounted) {
+      return;
+    }
+    if (action == 'approve') {
+      await _mutate((api) {
+        return api.approveNodeEnrollmentRequest(accountId, requestId);
+      });
+    } else if (action == 'reject') {
+      await _mutate((api) {
+        return api.rejectNodeEnrollmentRequest(accountId, requestId);
+      });
     }
   }
 
