@@ -1,0 +1,90 @@
+{
+  "machines": [
+    {
+      "id": "machine-multiple",
+      "network_id": "network-1",
+      "network_name": "Production",
+      "user_id": "user-1",
+      "owner_email": "operator@example.test",
+      "hostname": "edge-gateway",
+      "assigned_ip": "100.64.0.10",
+      "assigned_ipv6": "fd7a:115c:a1e0::10",
+      "endpoint": "203.0.113.10:41641",
+      "endpoint_candidates": [
+        "203.0.113.10:41641",
+        "192.0.2.10:41641",
+        "[2001:db8::10]:41641",
+        "[2001:db8::10]:41641"
+      ],
+      "endpoint_generation": 12,
+      "endpoint_expires_at": "2099-07-17T12:00:00Z",
+      "client_version": "1.4.0",
+      "os": "linux",
+      "platform": "amd64",
+      "status": "online",
+      "advertised_ips": ["10.10.0.0/16"],
+      "tags": ["gateway"],
+      "key_expiry_enabled": true,
+      "approval_state": "approved",
+      "last_seen": "2026-07-17T09:00:00Z",
+      "created_at": "2026-07-01T09:00:00Z"
+    },
+    {
+      "id": "machine-empty",
+      "network_id": "network-1",
+      "network_name": "Production",
+      "user_id": "user-2",
+      "hostname": "new-laptop",
+      "assigned_ip": "100.64.0.11",
+      "endpoint": "",
+      "endpoint_candidates": [],
+      "status": "offline",
+      "tags": [],
+      "advertised_ips": [],
+      "key_expiry_enabled": false,
+      "last_seen": "2026-07-16T09:00:00Z",
+      "created_at": "2026-07-16T08:00:00Z"
+    },
+    {
+      "id": "machine-expired",
+      "network_id": "network-1",
+      "network_name": "Production",
+      "user_id": "user-3",
+      "hostname": "stale-router",
+      "assigned_ip": "100.64.0.12",
+      "endpoint": "198.51.100.12:41641",
+      "endpoint_candidates": ["[2001:db8:1::12]:41641"],
+      "endpoint_generation": 4,
+      "endpoint_expires_at": "2020-01-01T00:00:00Z",
+      "status": "offline",
+      "tags": ["router"],
+      "advertised_ips": [],
+      "key_expiry_enabled": false,
+      "last_seen": "2020-01-01T00:00:00Z",
+      "created_at": "2019-12-01T00:00:00Z"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node-ipv6",
+      "network_id": "network-1",
+      "user_id": "user-4",
+      "hostname": "ipv6-node",
+      "assigned_ip": "100.64.0.13",
+      "assigned_ipv6": "fd7a:115c:a1e0::13",
+      "endpoint": "[2001:db8:2::13]:51820",
+      "endpoint_candidates": [
+        "[2001:db8:2::13]:51820",
+        "203.0.113.13:51820"
+      ],
+      "endpoint_generation": 7,
+      "endpoint_expires_at": "2099-07-17T12:00:00Z",
+      "status": "online",
+      "advertised_ips": [],
+      "tags": ["workstation"],
+      "created_at": "2026-07-01T09:00:00Z",
+      "updated_at": "2026-07-17T08:59:00Z",
+      "last_seen": "2026-07-17T09:00:00Z"
+    }
+  ]
+}
