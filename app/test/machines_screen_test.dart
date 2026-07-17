@@ -22,40 +22,54 @@ void main() {
         .toList(growable: false);
   });
 
-  Future<void> pumpMachines(
-    WidgetTester tester, {
-    required String selectedMachineId,
-  }) async {
+  void useDesktopView(WidgetTester tester) {
     tester.view.physicalSize = const Size(1440, 1100);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildAdminTheme(Brightness.light),
-        home: Scaffold(
-          body: MachinesScreen(
-            machines: machines,
-            networks: const [],
-            apiBaseUrl: 'https://api.example.test',
-            canMutate: false,
-            selectedMachineId: selectedMachineId,
-            onMachineSelected: (_) {},
-            onCreateJoinToken: () async => null,
-            onCreateNetwork: (_) async {},
-            onUpdateMachine: (_, _) async {},
-            onDeleteMachine: (_) async {},
-          ),
+  }
+
+  Widget machinesApp({
+    required List<MachineModel> displayedMachines,
+    String selectedMachineId = '',
+    bool machinesLoaded = true,
+    bool isLoading = false,
+    Future<void> Function()? onRefresh,
+    Duration refreshInterval = const Duration(hours: 1),
+  }) {
+    return MaterialApp(
+      theme: buildAdminTheme(Brightness.light),
+      home: Scaffold(
+        body: MachinesScreen(
+          machines: displayedMachines,
+          machinesLoaded: machinesLoaded,
+          isLoading: isLoading,
+          networks: const [],
+          apiBaseUrl: 'https://api.example.test',
+          canMutate: false,
+          selectedMachineId: selectedMachineId,
+          onMachineSelected: (_) {},
+          onRefresh: onRefresh ?? () async {},
+          onCreateJoinToken: () async => null,
+          onCreateNetwork: (_) async {},
+          onUpdateMachine: (_, _) async {},
+          onDeleteMachine: (_) async {},
+          refreshInterval: refreshInterval,
         ),
       ),
     );
-    await tester.pump();
   }
 
   testWidgets('shows compact endpoint summaries and a full accessible list', (
     tester,
   ) async {
-    await pumpMachines(tester, selectedMachineId: 'machine-multiple');
+    useDesktopView(tester);
+    await tester.pumpWidget(
+      machinesApp(
+        displayedMachines: machines,
+        selectedMachineId: 'machine-multiple',
+      ),
+    );
 
     expect(find.text('Эндпоинты'), findsOneWidget);
     expect(find.text('основной · +2'), findsOneWidget);
@@ -81,7 +95,13 @@ void main() {
   testWidgets('marks expired endpoint values as diagnostic-only', (
     tester,
   ) async {
-    await pumpMachines(tester, selectedMachineId: 'machine-expired');
+    useDesktopView(tester);
+    await tester.pumpWidget(
+      machinesApp(
+        displayedMachines: machines,
+        selectedMachineId: 'machine-expired',
+      ),
+    );
 
     expect(find.text('истекли · 2'), findsOneWidget);
     expect(find.text('истекло'), findsOneWidget);
@@ -94,13 +114,72 @@ void main() {
   });
 
   testWidgets('renders an explicit empty endpoint state', (tester) async {
-    await pumpMachines(tester, selectedMachineId: 'machine-empty');
+    useDesktopView(tester);
+    await tester.pumpWidget(
+      machinesApp(
+        displayedMachines: machines,
+        selectedMachineId: 'machine-empty',
+      ),
+    );
 
     expect(find.text('Нет опубликованных эндпоинтов.'), findsOneWidget);
     expect(
       _semanticsWithLabel('Опубликованные эндпоинты отсутствуют'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('refreshes the machines table periodically', (tester) async {
+    var refreshCount = 0;
+    await tester.pumpWidget(
+      machinesApp(
+        displayedMachines: const [],
+        onRefresh: () async {
+          refreshCount += 1;
+        },
+        refreshInterval: const Duration(seconds: 1),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 999));
+    expect(refreshCount, 0);
+
+    await tester.pump(const Duration(milliseconds: 1));
+    expect(refreshCount, 1);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(refreshCount, 2);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('shows empty state only after an empty API response', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      machinesApp(
+        displayedMachines: const [],
+        machinesLoaded: false,
+        isLoading: true,
+      ),
+    );
+    expect(find.text('Загрузка устройств…'), findsOneWidget);
+    expect(find.text('Нет устройств'), findsNothing);
+
+    await tester.pumpWidget(
+      machinesApp(
+        displayedMachines: const [],
+        machinesLoaded: false,
+        isLoading: false,
+      ),
+    );
+    expect(find.text('Список устройств не загружен'), findsOneWidget);
+    expect(find.text('Нет устройств'), findsNothing);
+
+    await tester.pumpWidget(machinesApp(displayedMachines: const []));
+    expect(find.text('Нет устройств'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
 

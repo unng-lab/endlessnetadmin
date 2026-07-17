@@ -26,6 +26,8 @@ String currentCheckoutID() => '';
 
 String currentEnrollmentRequestID() => '';
 
+String currentMachineID() => '';
+
 void pushAdminView(String viewSlug) {}
 
 void replaceAdminView(String viewSlug) {}
@@ -33,6 +35,10 @@ void replaceAdminView(String viewSlug) {}
 void pushAdminPath(List<String> segments) {}
 
 void replaceAdminPath(List<String> segments) {}
+
+void pushMachineSelection(String machineId) {}
+
+void replaceMachineSelection(String machineId) {}
 
 void pushBillingView(String billingSlug) {}
 

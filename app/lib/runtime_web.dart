@@ -3,6 +3,8 @@ import 'dart:js_interop_unsafe';
 
 import 'package:web/web.dart' as web;
 
+import 'admin_routing.dart';
+
 const _checkoutKey = 'endlessnet_checkout_id';
 const _themeModeKey = 'endlessnet.admin.theme_mode';
 
@@ -94,6 +96,10 @@ String currentEnrollmentRequestID() {
       '';
 }
 
+String currentMachineID() {
+  return machineIdFromAdminLocation(Uri.parse(web.window.location.href));
+}
+
 void pushAdminView(String viewSlug) {
   _setAdminView(viewSlug, replace: false);
 }
@@ -108,6 +114,14 @@ void pushAdminPath(List<String> segments) {
 
 void replaceAdminPath(List<String> segments) {
   _setAdminPath(segments, replace: true);
+}
+
+void pushMachineSelection(String machineId) {
+  _setMachineSelection(machineId, replace: false);
+}
+
+void replaceMachineSelection(String machineId) {
+  _setMachineSelection(machineId, replace: true);
 }
 
 void pushBillingView(String billingSlug) {
@@ -146,6 +160,11 @@ void _setAdminPath(List<String> segments, {required bool replace}) {
   _writeHistory(next, replace: replace);
 }
 
+void _setMachineSelection(String machineId, {required bool replace}) {
+  final next = adminMachineSelectionLocation(_adminRootPath(), machineId);
+  _writeHistory(next, replace: replace);
+}
+
 void _setBillingView(String billingSlug, {required bool replace}) {
   final normalized = billingSlug.trim();
   final suffix = switch (normalized) {
@@ -157,7 +176,8 @@ void _setBillingView(String billingSlug, {required bool replace}) {
 }
 
 void _writeHistory(String next, {required bool replace}) {
-  final current = web.window.location.pathname;
+  final current =
+      '${web.window.location.pathname}${web.window.location.search}';
   if (next == current) {
     return;
   }

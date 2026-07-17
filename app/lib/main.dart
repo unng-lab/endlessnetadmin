@@ -89,6 +89,9 @@ class AdminConsole extends StatefulWidget {
 }
 
 class _AdminConsoleState extends State<AdminConsole> {
+  static const _machineRefreshErrorPrefix =
+      'Не удалось автоматически обновить устройства:';
+
   VoidCallback? _removeHistoryListener;
 
   AdminSection _section = AdminSection.machines;
@@ -96,16 +99,18 @@ class _AdminConsoleState extends State<AdminConsole> {
   String _selectedMachineId = '';
 
   String _apiBase = '';
-  bool _loading = false;
+  bool _loading = true;
   String? _alert;
   String _routeEnrollmentRequestId = '';
   String _handledEnrollmentRequestId = '';
+  bool _machineRefreshInFlight = false;
 
   AdminUser? _me;
   List<AccountModel> _accounts = const [];
   String _selectedAccountId = '';
   List<NetworkModel> _networks = const [];
   List<MachineModel> _machines = const [];
+  bool _machinesLoaded = false;
   List<AppModel> _apps = const [];
   List<ServiceModel> _services = const [];
   List<AccountMemberModel> _members = const [];
@@ -198,8 +203,8 @@ class _AdminConsoleState extends State<AdminConsole> {
       'billing' => AdminSection.settings,
       _ => sectionFromSlug(first),
     };
-    _selectedMachineId = _section == AdminSection.machines && route.length > 1
-        ? route[1]
+    _selectedMachineId = _section == AdminSection.machines
+        ? runtime.currentMachineID().trim()
         : '';
     _settingsDetail = switch (first) {
       'billing' => 'billing',
@@ -225,9 +230,13 @@ class _AdminConsoleState extends State<AdminConsole> {
         const <AccountModel>[],
       );
       final selectedAccountId = _resolveAccount(accounts);
+      final keepExistingMachineState = selectedAccountId == _selectedAccountId;
 
       var networks = const <NetworkModel>[];
-      var machines = const <MachineModel>[];
+      var machines = keepExistingMachineState
+          ? _machines
+          : const <MachineModel>[];
+      var machinesLoaded = keepExistingMachineState && _machinesLoaded;
       var apps = const <AppModel>[];
       var services = const <ServiceModel>[];
       var members = const <AccountMemberModel>[];
@@ -256,12 +265,15 @@ class _AdminConsoleState extends State<AdminConsole> {
           () => api.listNetworks(accountId: selectedAccountId),
           const <NetworkModel>[],
         );
-        machines = await _loadOptional(
-          warnings,
-          'устройства',
-          () => api.listMachines(selectedAccountId),
-          const <MachineModel>[],
-        );
+        try {
+          machines = await api.listMachines(selectedAccountId);
+          machinesLoaded = true;
+        } catch (error) {
+          if (error is ApiException && error.isAuthFailure) {
+            rethrow;
+          }
+          warnings.add('Не удалось загрузить устройства: $error');
+        }
         apps = await _loadOptional(
           warnings,
           'приложения',
@@ -358,6 +370,7 @@ class _AdminConsoleState extends State<AdminConsole> {
         _selectedAccountId = selectedAccountId;
         _networks = networks;
         _machines = machines;
+        _machinesLoaded = machinesLoaded;
         _apps = apps;
         _services = services;
         _members = members;
@@ -434,7 +447,12 @@ class _AdminConsoleState extends State<AdminConsole> {
     setState(() {
       _selectedAccountId = accountId;
       _selectedMachineId = '';
+      _machines = const [];
+      _machinesLoaded = false;
     });
+    if (_section == AdminSection.machines) {
+      runtime.replaceMachineSelection('');
+    }
     await _loadAll();
   }
 
@@ -458,7 +476,56 @@ class _AdminConsoleState extends State<AdminConsole> {
 
   void _selectMachine(String machineId) {
     setState(() => _selectedMachineId = machineId);
-    runtime.pushAdminPath([AdminSection.machines.slug, machineId]);
+    runtime.pushMachineSelection(machineId);
+  }
+
+  Future<void> _refreshMachines() async {
+    final accountId = _selectedAccountId.trim();
+    if (_loading ||
+        _machineRefreshInFlight ||
+        _section != AdminSection.machines ||
+        accountId.isEmpty) {
+      return;
+    }
+
+    _machineRefreshInFlight = true;
+    try {
+      final machines = await _client().listMachines(accountId);
+      if (!mounted ||
+          _loading ||
+          _section != AdminSection.machines ||
+          accountId != _selectedAccountId) {
+        return;
+      }
+      final selectionWasRemoved =
+          _selectedMachineId.isNotEmpty &&
+          !machines.any((machine) => machine.id == _selectedMachineId);
+      setState(() {
+        _machines = machines;
+        _machinesLoaded = true;
+        if (selectionWasRemoved) {
+          _selectedMachineId = '';
+        }
+        if (_alert?.startsWith(_machineRefreshErrorPrefix) ?? false) {
+          _alert = null;
+        }
+      });
+      if (selectionWasRemoved) {
+        runtime.replaceMachineSelection('');
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (error is ApiException && error.isAuthFailure) {
+        setState(() => _alert = 'Сессия истекла. Войдите снова.');
+        runtime.redirectTo(runtime.adminLoginUrl());
+        return;
+      }
+      setState(() => _alert = '$_machineRefreshErrorPrefix $error');
+    } finally {
+      _machineRefreshInFlight = false;
+    }
   }
 
   Future<Map<String, dynamic>?> _createJoinTokenPayload([
@@ -646,6 +713,7 @@ class _AdminConsoleState extends State<AdminConsole> {
       _selectedAccountId = '';
       _networks = const [];
       _machines = const [];
+      _machinesLoaded = false;
       _apps = const [];
       _services = const [];
       _members = const [];
@@ -717,6 +785,13 @@ class _AdminConsoleState extends State<AdminConsole> {
 
   Future<void> _deleteMachine(String id) async {
     await _mutate((api) => api.deleteMachine(id));
+    if (!mounted || id != _selectedMachineId) {
+      return;
+    }
+    if (!_machines.any((machine) => machine.id == id)) {
+      setState(() => _selectedMachineId = '');
+      runtime.replaceMachineSelection('');
+    }
   }
 
   Future<void> _saveApp(String id, Map<String, Object?> values) async {
@@ -926,11 +1001,14 @@ class _AdminConsoleState extends State<AdminConsole> {
     return switch (_section) {
       AdminSection.machines => MachinesScreen(
         machines: _machines,
+        machinesLoaded: _machinesLoaded,
+        isLoading: _loading,
         networks: _networks,
         apiBaseUrl: _apiBase,
         canMutate: _canMutate,
         selectedMachineId: _selectedMachineId,
         onMachineSelected: _selectMachine,
+        onRefresh: _refreshMachines,
         onCreateJoinToken: _createJoinToken,
         onCreateNetwork: _createNetwork,
         onUpdateMachine: _updateMachine,

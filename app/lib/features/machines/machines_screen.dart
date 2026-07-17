@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../components.dart';
@@ -5,32 +7,42 @@ import '../../models.dart';
 import '../../theme.dart';
 import '../resource_hub/windows_enrollment.dart';
 
+const machinesRefreshInterval = Duration(seconds: 10);
+
 class MachinesScreen extends StatefulWidget {
   const MachinesScreen({
     super.key,
     required this.machines,
+    required this.machinesLoaded,
+    required this.isLoading,
     required this.networks,
     required this.apiBaseUrl,
     required this.canMutate,
     required this.selectedMachineId,
     required this.onMachineSelected,
+    required this.onRefresh,
     required this.onCreateJoinToken,
     required this.onCreateNetwork,
     required this.onUpdateMachine,
     required this.onDeleteMachine,
-  });
+    this.refreshInterval = machinesRefreshInterval,
+  }) : assert(refreshInterval > Duration.zero);
 
   final List<MachineModel> machines;
+  final bool machinesLoaded;
+  final bool isLoading;
   final List<NetworkModel> networks;
   final String apiBaseUrl;
   final bool canMutate;
   final String selectedMachineId;
   final ValueChanged<String> onMachineSelected;
+  final Future<void> Function() onRefresh;
   final Future<String?> Function() onCreateJoinToken;
   final Future<void> Function(Map<String, Object?> values) onCreateNetwork;
   final Future<void> Function(String id, Map<String, Object?> values)
   onUpdateMachine;
   final Future<void> Function(String id) onDeleteMachine;
+  final Duration refreshInterval;
 
   @override
   State<MachinesScreen> createState() => _MachinesScreenState();
@@ -40,11 +52,48 @@ class _MachinesScreenState extends State<MachinesScreen> {
   final _filter = TextEditingController();
   String _query = '';
   String? _lastJoinToken;
+  Timer? _refreshTimer;
+  bool _refreshInFlight = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startRefreshTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant MachinesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshInterval != widget.refreshInterval) {
+      _startRefreshTimer();
+    }
+  }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _filter.dispose();
     super.dispose();
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      widget.refreshInterval,
+      (_) => unawaited(_refresh()),
+    );
+  }
+
+  Future<void> _refresh() async {
+    if (_refreshInFlight) {
+      return;
+    }
+    _refreshInFlight = true;
+    try {
+      await widget.onRefresh();
+    } finally {
+      _refreshInFlight = false;
+    }
   }
 
   @override
@@ -133,7 +182,30 @@ class _MachinesScreenState extends State<MachinesScreen> {
             apiBaseUrl: widget.apiBaseUrl,
           ),
         if (_lastJoinToken != null) const SizedBox(height: 16),
-        if (machines.isEmpty)
+        if (!widget.machinesLoaded && widget.isLoading)
+          const SurfacePanel(
+            child: SizedBox(
+              height: 144,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 14),
+                    Text('Загрузка устройств…'),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else if (!widget.machinesLoaded)
+          const EmptyState(
+            icon: Icons.error_outline_rounded,
+            title: 'Список устройств не загружен',
+            detail:
+                'Не удалось получить список устройств. Данные будут запрошены повторно автоматически.',
+          )
+        else if (machines.isEmpty)
           const EmptyState(
             icon: Icons.dns_rounded,
             title: 'Нет устройств',
