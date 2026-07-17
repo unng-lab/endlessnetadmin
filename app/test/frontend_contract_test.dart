@@ -41,6 +41,51 @@ void main() {
     expect(loginSource, contains('/auth/providers'));
   });
 
+  test(
+    'device endpoint publication fields are pinned for nodes and machines',
+    () {
+      final spec =
+          jsonDecode(
+                File(
+                  '../contracts/frontend-api.openapi.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final components = spec['components'] as Map<String, dynamic>;
+      final schemas = components['schemas'] as Map<String, dynamic>;
+
+      for (final schemaName in ['Node', 'AdminMachine']) {
+        final schema = schemas[schemaName] as Map<String, dynamic>;
+        final properties = schema['properties'] as Map<String, dynamic>;
+        expect(
+          properties.keys,
+          containsAll([
+            'endpoint',
+            'endpoint_candidates',
+            'endpoint_generation',
+            'endpoint_expires_at',
+          ]),
+          reason: schemaName,
+        );
+        expect(
+          (properties['endpoint'] as Map<String, dynamic>)['type'],
+          'string',
+          reason: '$schemaName.endpoint',
+        );
+        expect(
+          (properties['endpoint_candidates'] as Map<String, dynamic>)['type'],
+          'array',
+          reason: '$schemaName.endpoint_candidates',
+        );
+        expect(
+          (properties['endpoint_generation'] as Map<String, dynamic>)['type'],
+          'integer',
+          reason: '$schemaName.endpoint_generation',
+        );
+      }
+    },
+  );
+
   test('admin runtime configuration uses the pinned schema version', () {
     final schema =
         jsonDecode(

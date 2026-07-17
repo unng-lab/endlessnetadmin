@@ -57,6 +57,8 @@ class _MachinesScreenState extends State<MachinesScreen> {
             machine.networkName,
             machine.assignedIp,
             machine.assignedIpv6,
+            machine.endpoint,
+            machine.endpointCandidates.join(' '),
             machine.status,
             machine.os,
             machine.clientVersion,
@@ -78,7 +80,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
         SectionHeader(
           title: 'Устройства',
           subtitle:
-              'Узлы, адреса, маршруты, теги, срок действия ключей и состояние подключения.',
+              'Узлы, опубликованные эндпоинты, адреса, маршруты, теги, срок действия ключей и состояние подключения.',
           actions: [
             if (widget.canMutate)
               FilledButton.icon(
@@ -150,7 +152,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                   DataColumn(label: Text('Владелец')),
                   DataColumn(label: Text('Сеть')),
                   DataColumn(label: Text('Адреса')),
-                  DataColumn(label: Text('Эндпоинт')),
+                  DataColumn(label: Text('Эндпоинты')),
                   DataColumn(label: Text('Версия')),
                   DataColumn(label: Text('Статус')),
                   DataColumn(label: Text('Последняя активность')),
@@ -186,13 +188,7 @@ class _MachinesScreenState extends State<MachinesScreen> {
                             ].where((item) => item.isNotEmpty).join('\n'),
                           ),
                         ),
-                        DataCell(
-                          Text(
-                            machine.endpoint.isEmpty
-                                ? '-'
-                                : shortText(machine.endpoint, 28),
-                          ),
-                        ),
+                        DataCell(_EndpointSummary(publication: machine)),
                         DataCell(
                           Text(
                             machine.clientVersion.isEmpty
@@ -317,7 +313,6 @@ class _MachineDetail extends StatelessWidget {
       'Ключ идентичности': shortText(machine.identityPublicKey, 30),
       'Назначенный IPv4': machine.assignedIp,
       'Назначенный IPv6': machine.assignedIpv6,
-      'Эндпоинт': machine.endpoint,
       'Объявленные маршруты': machine.advertisedIps.join(', '),
       'Срок действия ключа': boolLabel(machine.keyExpiryEnabled),
       'Одобрение': machine.approvalState.isEmpty
@@ -395,6 +390,8 @@ class _MachineDetail extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 18),
+          _EndpointPublicationDetail(publication: machine),
         ],
       ),
     );
@@ -473,6 +470,262 @@ class _MachineDetail extends StatelessWidget {
       await save(value);
     }
   }
+}
+
+class _EndpointSummary extends StatelessWidget {
+  const _EndpointSummary({required this.publication});
+
+  final EndpointPublicationModel publication;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.adminColors;
+    final endpoints = publication.publishedEndpoints;
+    if (endpoints.isEmpty) {
+      return Semantics(
+        label: 'Опубликованные эндпоинты отсутствуют',
+        child: const Text('-'),
+      );
+    }
+
+    final expired = publication.endpointPublicationIsExpiredAt(DateTime.now());
+    PublishedEndpoint? primary;
+    for (final endpoint in endpoints) {
+      if (endpoint.isPrimary) {
+        primary = endpoint;
+        break;
+      }
+    }
+    final candidateCount = endpoints.length - (primary == null ? 0 : 1);
+    final status = expired
+        ? 'истекли · ${endpoints.length}'
+        : primary == null
+        ? '$candidateCount кандид.'
+        : candidateCount == 0
+        ? 'основной'
+        : 'основной · +$candidateCount';
+    final semanticLabel = _endpointDescription(publication, expired: expired);
+
+    return Tooltip(
+      message: semanticLabel,
+      child: Semantics(
+        container: true,
+        label: semanticLabel,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              shortText((primary ?? endpoints.first).value, 30),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              status,
+              maxLines: 1,
+              style: TextStyle(
+                color: expired ? colors.amber : colors.muted,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EndpointPublicationDetail extends StatelessWidget {
+  const _EndpointPublicationDetail({required this.publication});
+
+  final EndpointPublicationModel publication;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.adminColors;
+    final endpoints = publication.publishedEndpoints;
+    final expired = publication.endpointPublicationIsExpiredAt(DateTime.now());
+    final statusLabel = endpoints.isEmpty
+        ? 'нет данных'
+        : expired
+        ? 'истекло'
+        : 'опубликовано';
+    final statusTone = endpoints.isEmpty
+        ? StatusTone.neutral
+        : expired
+        ? StatusTone.warn
+        : StatusTone.good;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(color: colors.line),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              'Опубликованные эндпоинты',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            StatusPill(label: statusLabel, tone: statusTone),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Адреса, опубликованные сервером для подключения к устройству. '
+          'Кандидаты не означают путь, выбранный клиентом.',
+          style: TextStyle(color: colors.muted, height: 1.4),
+        ),
+        if (expired) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: colors.amber.withValues(alpha: .08),
+              border: Border.all(color: colors.amber.withValues(alpha: .32)),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Срок публикации истёк. Адреса ниже показаны только для диагностики и не считаются актуальными.',
+              style: TextStyle(
+                color: colors.amber,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        if (endpoints.isEmpty)
+          Text(
+            'Нет опубликованных эндпоинтов.',
+            style: TextStyle(color: colors.muted),
+          )
+        else
+          Column(
+            children: [
+              for (final endpoint in endpoints)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Semantics(
+                    container: true,
+                    label:
+                        '${endpoint.isPrimary ? 'Основной эндпоинт' : 'Кандидат эндпоинта'}: ${endpoint.value}',
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceAlt,
+                        border: Border.all(color: colors.line),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 86,
+                            child: Text(
+                              endpoint.isPrimary ? 'Основной' : 'Кандидат',
+                              style: TextStyle(
+                                color: endpoint.isPrimary
+                                    ? colors.blue
+                                    : colors.muted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SelectableText(
+                              endpoint.value,
+                              style: const TextStyle(fontFamily: 'monospace'),
+                            ),
+                          ),
+                          CopyButton(
+                            value: endpoint.value,
+                            tooltip: 'Копировать эндпоинт',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        if (publication.endpointGeneration != null ||
+            publication.endpointExpiresAt != null) ...[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 24,
+            runSpacing: 10,
+            children: [
+              if (publication.endpointGeneration != null)
+                _EndpointDiagnostic(
+                  label: 'Поколение публикации',
+                  value: '${publication.endpointGeneration}',
+                ),
+              if (publication.endpointExpiresAt != null)
+                _EndpointDiagnostic(
+                  label: 'Действительны до',
+                  value: formatDate(publication.endpointExpiresAt),
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _EndpointDiagnostic extends StatelessWidget {
+  const _EndpointDiagnostic({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.adminColors;
+    return SizedBox(
+      width: 220,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: colors.muted,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          SelectableText(value),
+        ],
+      ),
+    );
+  }
+}
+
+String _endpointDescription(
+  EndpointPublicationModel publication, {
+  required bool expired,
+}) {
+  final lines = <String>[
+    if (expired) 'Публикация истекла',
+    for (final endpoint in publication.publishedEndpoints)
+      '${endpoint.isPrimary ? 'Основной' : 'Кандидат'}: ${endpoint.value}',
+    if (publication.endpointGeneration != null)
+      'Поколение: ${publication.endpointGeneration}',
+    if (publication.endpointExpiresAt != null)
+      'Действительны до: ${formatDate(publication.endpointExpiresAt)}',
+  ];
+  return lines.join('\n');
 }
 
 class _AddDevicePanel extends StatelessWidget {

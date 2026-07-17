@@ -94,7 +94,45 @@ class NetworkModel {
   }
 }
 
-class NodeModel {
+class PublishedEndpoint {
+  const PublishedEndpoint({required this.value, required this.isPrimary});
+
+  final String value;
+  final bool isPrimary;
+}
+
+mixin EndpointPublicationModel {
+  String get endpoint;
+  List<String> get endpointCandidates;
+  int? get endpointGeneration;
+  DateTime? get endpointExpiresAt;
+
+  List<PublishedEndpoint> get publishedEndpoints {
+    final result = <PublishedEndpoint>[];
+    final seen = <String>{};
+    final primary = endpoint.trim();
+    if (primary.isNotEmpty) {
+      seen.add(primary);
+      result.add(PublishedEndpoint(value: primary, isPrimary: true));
+    }
+    for (final rawCandidate in endpointCandidates) {
+      final candidate = rawCandidate.trim();
+      if (candidate.isNotEmpty && seen.add(candidate)) {
+        result.add(PublishedEndpoint(value: candidate, isPrimary: false));
+      }
+    }
+    return List.unmodifiable(result);
+  }
+
+  bool endpointPublicationIsExpiredAt(DateTime now) {
+    final expiresAt = endpointExpiresAt;
+    return publishedEndpoints.isNotEmpty &&
+        expiresAt != null &&
+        !expiresAt.isAfter(now);
+  }
+}
+
+class NodeModel with EndpointPublicationModel {
   const NodeModel({
     required this.id,
     required this.networkId,
@@ -103,6 +141,10 @@ class NodeModel {
     required this.publicKey,
     required this.assignedIp,
     required this.assignedIpv6,
+    required this.endpoint,
+    required this.endpointCandidates,
+    required this.endpointGeneration,
+    required this.endpointExpiresAt,
     required this.status,
     required this.advertisedIps,
     required this.tags,
@@ -118,6 +160,14 @@ class NodeModel {
   final String publicKey;
   final String assignedIp;
   final String assignedIpv6;
+  @override
+  final String endpoint;
+  @override
+  final List<String> endpointCandidates;
+  @override
+  final int? endpointGeneration;
+  @override
+  final DateTime? endpointExpiresAt;
   final String status;
   final List<String> advertisedIps;
   final List<String> tags;
@@ -134,6 +184,10 @@ class NodeModel {
       publicKey: stringValue(json['public_key']),
       assignedIp: stringValue(json['assigned_ip']),
       assignedIpv6: stringValue(json['assigned_ipv6']),
+      endpoint: stringValue(json['endpoint']),
+      endpointCandidates: stringList(json['endpoint_candidates']),
+      endpointGeneration: nullableIntValue(json['endpoint_generation']),
+      endpointExpiresAt: dateValue(json['endpoint_expires_at']),
       status: stringValue(json['status']),
       advertisedIps: stringList(json['advertised_ips']),
       tags: stringList(json['tags']),
@@ -144,7 +198,7 @@ class NodeModel {
   }
 }
 
-class MachineModel {
+class MachineModel with EndpointPublicationModel {
   const MachineModel({
     required this.id,
     required this.networkId,
@@ -157,6 +211,9 @@ class MachineModel {
     required this.assignedIp,
     required this.assignedIpv6,
     required this.endpoint,
+    required this.endpointCandidates,
+    required this.endpointGeneration,
+    required this.endpointExpiresAt,
     required this.clientVersion,
     required this.os,
     required this.platform,
@@ -179,7 +236,14 @@ class MachineModel {
   final String identityPublicKey;
   final String assignedIp;
   final String assignedIpv6;
+  @override
   final String endpoint;
+  @override
+  final List<String> endpointCandidates;
+  @override
+  final int? endpointGeneration;
+  @override
+  final DateTime? endpointExpiresAt;
   final String clientVersion;
   final String os;
   final String platform;
@@ -204,6 +268,9 @@ class MachineModel {
       assignedIp: stringValue(json['assigned_ip']),
       assignedIpv6: stringValue(json['assigned_ipv6']),
       endpoint: stringValue(json['endpoint']),
+      endpointCandidates: stringList(json['endpoint_candidates']),
+      endpointGeneration: nullableIntValue(json['endpoint_generation']),
+      endpointExpiresAt: dateValue(json['endpoint_expires_at']),
       clientVersion: stringValue(json['client_version']),
       os: stringValue(json['os']),
       platform: stringValue(json['platform']),
@@ -710,6 +777,13 @@ int intValue(Object? value) {
     return value.round();
   }
   return int.tryParse(stringValue(value)) ?? 0;
+}
+
+int? nullableIntValue(Object? value) {
+  if (value == null || stringValue(value).trim().isEmpty) {
+    return null;
+  }
+  return intValue(value);
 }
 
 bool boolValue(Object? value) {

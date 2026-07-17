@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:endlessnet_admin/api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,37 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('device list clients decode endpoint publication fields', () async {
+    final fixture =
+        jsonDecode(
+              File('test/fixtures/device_endpoints.json').readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final client = ApiClient(
+      baseUrl: 'https://api.example.test',
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/admin/accounts/account-1/machines') {
+          return http.Response(
+            jsonEncode({'machines': fixture['machines']}),
+            200,
+          );
+        }
+        if (request.url.path == '/networks/network-1/nodes') {
+          return http.Response(jsonEncode(fixture['nodes']), 200);
+        }
+        return http.Response('not found', 404);
+      }),
+    );
+
+    final machines = await client.listMachines('account-1');
+    final nodes = await client.listNodes('network-1');
+
+    expect(machines.first.publishedEndpoints, hasLength(3));
+    expect(machines.first.endpointGeneration, 12);
+    expect(nodes.single.endpoint, '[2001:db8:2::13]:51820');
+    expect(nodes.single.publishedEndpoints, hasLength(2));
+  });
+
   test(
     'cookie session mode does not synthesize bearer authorization',
     () async {
